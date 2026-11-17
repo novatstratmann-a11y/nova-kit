@@ -1,0 +1,14 @@
+services:
+  blog:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./blog_data:/data
+      - ../personality/memory/portfolio:/portfolio-data:ro
+      - ../personality/memory/portfolio_b:/portfolio-b-data:ro
+    environment:
+      - DB_PATH=/data/blog.db
+      - PORTFOLIO_PATH=/portfolio-data/portfolio.json
+      - TRADES_PATH=/portfolio-data/trades.json
+    restart: unless-stopped

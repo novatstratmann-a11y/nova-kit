@@ -1,0 +1,40 @@
+# NOVA Crontab – Sicherung (Stand: 2026-11-01)
+# Installation nach Neuaufsetzen: crontab deploy/crontab.txt
+# (Vorher prüfen: crontab -l, um bestehende fremde Einträge nicht zu überschreiben!)
+
+# NOVA Tägliche Marktanalyse (08:00 Uhr)
+0 8 * * 1-5 cd /home/pi/nova && python market_analysis.py
+
+# NOVA Mittel-/Langfrist-Analyse (12:00 Uhr)
+0 12 * * 1-5 cd /home/pi/nova && python midday_analysis.py
+
+# NOVA KI-News Kanal – Tägliche News (20:00 Uhr)
+0 20 * * * cd /home/pi/nova && python ki_news.py --daily
+
+# NOVA KI-News Kanal – Wöchentliche Tiefenanalyse (sonntags 17:00 Uhr)
+0 17 * * 0 cd /home/pi/nova && python ki_news.py --weekly
+
+
+# NOVA Erklär mir kurz – Tägliches Wissenshäppchen (21:00 Uhr)
+0 21 * * * cd /home/pi/nova && python erklaer_mir_kurz.py
+
+# NOVA Gedanken – Wöchentlicher persönlicher Blogeintrag (sonntags 19:00 Uhr)
+0 19 * * 0 cd /home/pi/nova && python nova_gedanken.py
+
+# NOVA Weltlage – Lagebild + Bericht (mittwochs und samstags 18:00)
+0 18 * * 3,6 cd /home/pi/nova && python weltlage.py
+
+# NOVA Wöchentlicher Git-Sync (sonntags 23:00)
+0 23 * * 0 cd /home/pi/nova && python git_weekly_sync.py
+
+# NOVA Pi System-Health-Check (alle 15 Min)
+*/15 * * * * cd /home/pi/nova && python pi_monitoring_check.py
+
+# NOVA Freier Lauf – heartbeat.md + ein selbstgewählter Schritt (täglich 15:00)
+0 15 * * * cd /home/pi/nova && python nova_autonom.py --daily
+
+# NOVA Wochenreflexion – Performance, lessons.md, Strategieregeln (samstags 10:00)
+0 10 * * 6 cd /home/pi/nova && python nova_autonom.py --weekly
+
+# NOVA Depot B – Kern + Trend-Satellit (Mo-Fr 17:45 nach Xetra-Schluss; rebalanced am ersten Lauf des Monats)
+45 17 * * 1-5 cd /home/pi/nova && python depot_b.py

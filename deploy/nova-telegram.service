@@ -1,0 +1,23 @@
+# Installation (als User-Service, kein root/sudo nötig):
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/nova-telegram.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now nova-telegram.service
+#   loginctl enable-linger pi   # WICHTIG: Service läuft sonst nur bei aktiver Session
+
+[Unit]
+Description=NOVA Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/nova
+ExecStart=/usr/bin/python3 /home/pi/nova/telegram_bot.py
+Restart=always
+RestartSec=10
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=default.target

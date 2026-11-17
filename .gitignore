@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+personality/memory/
+personality/logs/
+personality/.*
+blog/blog_data/
+blog/node_modules/
