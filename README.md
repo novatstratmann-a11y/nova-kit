@@ -4,6 +4,16 @@ Ein autonomer Agent auf einem Raspberry Pi 5. Er ruft per Cron die Claude-Code-C
 
 Das Kit ist ein bereinigter Schnappschuss eines Systems, das seit Mai 2026 läuft. Es ist ein Bastelprojekt und kein Produkt: Code und Prompts sind über Monate gewachsen, die Kommentare sind deutsch.
 
+**Kurz:** Ein KI-Agent, der seit Mai 2026 auf einem Raspberry Pi 5 selbstständig arbeitet und sich selbst kontrolliert.
+
+- Keine Server-Kosten: Pi plus Claude-Abo, optional Brave Search.
+- Schreibt täglich Marktanalyse, KI-News und Erklärtexte und veröffentlicht sie auf Telegram und im eigenen Blog.
+- Gedächtnis aus Markdown-Dateien (`lessons.md`, `goals.md`, `agenda-log.md`), wöchentliche Reflexion gegen gemessene Ergebnisse.
+- Überwacht sich selbst: verpasste Cronjobs, Netzausfall, ablaufender Claude-Login, Temperatur, Disk.
+- Misst sich ehrlich: Zwei Papier-Depots laufen gegen den MSCI World. Das LLM-Depot liegt deutlich hinten. Die Bilanz unten zeigt die Zahlen und welche Regeln der Agent daraus gemacht hat.
+
+**Live ansehen:** Das Original veröffentlicht seine Texte, beide Depots und seine Selbstbeschreibung unter https://www.tstratmann.de/nova
+
 ## Was drin ist
 
 | Teil | Dateien | Was es tut |
@@ -18,23 +28,6 @@ Das Kit ist ein bereinigter Schnappschuss eines Systems, das seit Mai 2026 läuf
 | Bot | `telegram_bot.py` | Long-Polling. `/status`, `/report` usw., freier Text geht an `py_nova.py`. |
 
 Nicht im Kit sind das Gedächtnis des Originals (Journal, Lessons, Depot-Historie), der E-Mail-Teil, die Blog-Datenbank und alles, was nur zur Infrastruktur des Originals gehört.
-
-## Bilanz des Originals
-
-Die Zahlen stammen aus dem laufenden System, Stand **14.11.2026** (Depot A) und **13.11.2026** (Depot B). Es handelt sich um Papiergeld, Steuern sind nicht eingerechnet. Ausgeführt wird zum Yahoo-Kurs, Kosten 1 € pro Order (Depot B zusätzlich 0,10 % Spread).
-
-| | Zeitraum | Rendite | Benchmark EUNL.DE | Abstand |
-|---|---|---:|---:|---:|
-| Depot A (LLM wählt Einzelwerte) | 19.05.–14.11.2026, 178 Tage | **-14,7 %** | +8,4 % | **-23,2 pp** |
-| Depot B (feste ETF-Regeln) | 02.11.–13.11.2026, 2 Wochen | +0,70 % | +0,38 % | +0,32 pp |
-
-Was das heißt:
-
-- **Depot A hat klar verloren.** Von 23 abgeschlossenen Trades waren 6 Gewinner (26 %). Im Schnitt brachten Gewinner +12,7 % und Verlierer -13,5 %, die Erwartung ist also negativ. Das Muster dahinter: Gekauft wurde nach Nachrichten und Hype (Halbleiter, Rüstung, Raumfahrt), verkauft am Stop 15–30 % tiefer. Seit Ende September kauft A kaum noch und hält rund 85 % Cash.
-- **Depot B ist zu jung für ein Urteil.** Zwei Wochen sind Rauschen. Ein Backtest der B-Regeln über 2015–2026 lag bei -0,7 pp pro Jahr hinter dem MSCI World, mit 5 pp weniger maximalem Drawdown. Auch gute Regeln liefern also kaum Überrendite.
-- **Für die eigenen Prognosen** (verworfene Käufe, Warnungen) gibt es bisher keinen Beleg, dass sie besser als Zufall sind.
-
-Wer das Kit wegen der Trading-Teile installiert, sollte diese Tabelle ernst nehmen. Wer einen ETF-Sparplan hat, war in diesem Zeitraum besser dran.
 
 ## Was du brauchst
 
@@ -74,6 +67,23 @@ crontab deploy/crontab.txt
 In der Vorlage steht `python`. Falls es auf deinem System nur `python3` gibt, ersetze es (oder installiere `python-is-python3`). Den Telegram-Bot als Dienst einrichten: siehe Kopf von `deploy/nova-telegram.service`.
 
 Ausprobieren ohne Senden: Die meisten Skripte kennen `--dry-run`, zum Beispiel `python3 depot_b.py --dry-run` oder `python3 nova_autonom.py --daily --dry-run`.
+
+## Bilanz des Originals
+
+Die Zahlen stammen aus dem laufenden System, Stand **21.11.2026** (Depot A) und **23.11.2026** (Depot B). Es handelt sich um Papiergeld, Steuern sind nicht eingerechnet. Ausgeführt wird zum Yahoo-Kurs, Kosten 1 € pro Order (Depot B zusätzlich 0,10 % Spread).
+
+| | Zeitraum | Rendite | Benchmark EUNL.DE | Abstand |
+|---|---|---:|---:|---:|
+| Depot A (LLM wählt Einzelwerte) | 19.05.–21.11.2026, 185 Tage | **-16,1 %** | +2,0 % | **-18,1 pp** |
+| Depot B (feste ETF-Regeln) | 02.11.–23.11.2026, 3 Wochen | -2,16 % | -2,37 % | +0,21 pp |
+
+Was das heißt:
+
+- **Depot A hat klar verloren.** Von 24 abgeschlossenen Trades waren 6 Gewinner (25 %). Im Schnitt brachten Gewinner +12,7 % und Verlierer -13,6 %, die Erwartung ist also negativ. Das Muster dahinter: Gekauft wurde nach Nachrichten und Hype (Halbleiter, Rüstung, Raumfahrt), verkauft am Stop 15–30 % tiefer. Der letzte Kauf war am 23.09. Seit dem Stop-Verkauf der letzten Position am 23.11. liegt A komplett in Cash. Der Abstand ist seit dem 14.11. kleiner geworden, weil der MSCI World gefallen ist, nicht weil A besser ausgewählt hat.
+- **Depot B ist zu jung für ein Urteil.** Drei Wochen sind Rauschen. Ein Backtest der B-Regeln über 2015–2026 lag bei -0,7 pp pro Jahr hinter dem MSCI World, mit 5 pp weniger maximalem Drawdown. Auch gute Regeln liefern also kaum Überrendite.
+- **Für die eigenen Prognosen** (verworfene Käufe, Warnungen) gibt es bisher keinen Beleg, dass sie besser als Zufall sind.
+
+Wer das Kit wegen der Trading-Teile installiert, sollte diese Tabelle ernst nehmen. Wer einen ETF-Sparplan hat, war in diesem Zeitraum besser dran.
 
 ## Kosten
 

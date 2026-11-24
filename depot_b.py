@@ -73,6 +73,10 @@ def setup_logging():
     fh.setFormatter(logging.Formatter("%(asctime)s  %(name)-16s  %(levelname)-8s  %(message)s",
                                       datefmt="%Y-%m-%d %H:%M:%S"))
     logger.addHandler(fh)
+    # telegram_utils-Warnungen (HTTP-Status, Fehlertext) ebenfalls nach scripts.log
+    # (Lücke ki_news 14.11.; vorher nur stdout, das Cron verwirft).
+    logging.getLogger("telegram").setLevel(logging.INFO)
+    logging.getLogger("telegram").addHandler(fh)
 
 
 # ---------------------------------------------------------------------------

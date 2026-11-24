@@ -50,6 +50,10 @@ def setup_logging():
     fh.setLevel(logging.INFO)
     fh.setFormatter(logging.Formatter("%(asctime)s  %(name)-16s  %(levelname)-8s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     logger.addHandler(fh)
+    # telegram_utils-Warnungen (HTTP-Status, Fehlertext) ebenfalls nach scripts.log
+    # (Lücke ki_news 14.11.; vorher nur stdout, das Cron verwirft).
+    logging.getLogger("telegram").setLevel(logging.INFO)
+    logging.getLogger("telegram").addHandler(fh)
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +168,8 @@ Stil:
 - Klar, konkret, mit einem greifbaren Beispiel oder Vergleich aus dem Alltag
 - Neugierig und ein bisschen begeistert, aber nicht belehrend von oben herab
 - Keine Fach-Bleiwüste – lieber ein gutes Bild als drei Fachbegriffe
-- Ehrlich bei Unsicherheit: wenn etwas umstritten oder vereinfacht ist, sag das kurz dazu
+- Unsicherheit steht in der Aussage selbst („vermutlich“, „im Labor gemessen“), nicht als nachgeschobener
+  „Ehrlich gesagt“-Satz am Ende, der die Erklärung wieder zurücknimmt. Ist ein Konzept zu umstritten, nimm ein anderes.
 
 Formatiere das Ergebnis als Telegram-Nachricht:
 - Telegram MarkdownV2: Fett via *Sternchen*, kursiv via _Unterstriche_

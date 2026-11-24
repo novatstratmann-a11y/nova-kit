@@ -80,7 +80,13 @@ class Job:
     grace_h: float
     marker: Optional[Callable[[datetime], Path]] = None   # Beleg per Marker
     log_name: Optional[str] = None                        # Beleg per scripts.log
+    start: Optional[datetime] = None                      # neue Jobs: erst ab hier überwachen
 
+
+IG_AUTO_START = datetime(2026, 11, 19, 12, 0)   # instagram_auto.py eingeführt
+IG_WELTLAGE_START = datetime(2026, 11, 21, 12, 0)  # --quelle weltlage (erster Termin Sa 21.11.)
+UMWELT_START = datetime(2026, 11, 20, 6, 0)      # umwelt_tipp.py + instagram_auto --quelle umwelt (ab Fr 20.11.)
+FLOW_START = datetime(2026, 11, 24, 7, 0)        # flow_paket.py --quelle umwelt (ab Di 24.11.)
 
 JOBS = [
     Job("market_analysis", 8, 0, WEEKDAYS, 3, marker=lambda t: PERS / f".market_analysis_{_d(t)}.sent"),
@@ -94,6 +100,20 @@ JOBS = [
     Job("nova_autonom --daily", 15, 0, ALL_DAYS, 3, marker=lambda t: SENT / f".nova_autonom_daily_{_d(t)}.sent"),
     Job("nova_autonom --weekly", 10, 0, (SAT,), 4, marker=lambda t: SENT / f".nova_autonom_weekly_{_kw(t)}.sent"),
     Job("git_weekly_sync", 23, 0, (SUN,), 1, log_name="git_weekly_sync"),
+    # Instagram seit 19.11.: Wochen-Slots ersetzt durch stündliches --naechster (ohne Marker, nicht überwacht)
+    Job("instagram_auto --quelle markt", 9, 15, WEEKDAYS, 2,
+        marker=lambda t: SENT / f".instagram_auto_markt_{t:%Y-%m-%d}.sent", start=IG_AUTO_START),
+    Job("instagram_auto --quelle ki", 20, 30, ALL_DAYS, 2,
+        marker=lambda t: SENT / f".instagram_auto_ki_{t:%Y-%m-%d}.sent", start=IG_AUTO_START),
+    Job("instagram_auto --quelle emk", 21, 20, ALL_DAYS, 2,
+        marker=lambda t: SENT / f".instagram_auto_emk_{t:%Y-%m-%d}.sent", start=IG_AUTO_START),
+    Job("umwelt_tipp", 7, 0, ALL_DAYS, 2.5, marker=lambda t: SENT / f".umwelt_tipp_{t:%Y-%m-%d}.sent", start=UMWELT_START),
+    Job("instagram_auto --quelle umwelt", 12, 30, ALL_DAYS, 2,
+        marker=lambda t: SENT / f".instagram_auto_umwelt_{t:%Y-%m-%d}.sent", start=UMWELT_START),
+    Job("flow_paket", 7, 40, ALL_DAYS, 2,
+        marker=lambda t: SENT / f".flow_paket_umwelt_{t:%Y-%m-%d}.sent", start=FLOW_START),
+    Job("instagram_auto --quelle weltlage", 19, 10, (WED, SAT), 2,
+        marker=lambda t: SENT / f".instagram_auto_weltlage_{t:%Y-%m-%d}.sent", start=IG_WELTLAGE_START),
 ]
 
 # Stündlicher Job: letzter Logeintrag darf höchstens so alt sein.
@@ -119,6 +139,8 @@ def _read_log_times() -> dict:
 def due_slots(job: Job, now: datetime, since: datetime) -> list:
     """Alle planmäßigen Termine in [since, now - Kulanz]."""
     slots = []
+    if job.start:
+        since = max(since, job.start)
     day = since.date()
     while day <= now.date():
         if day.weekday() in job.days:

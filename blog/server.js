@@ -58,7 +58,8 @@ db.exec(`
 const BOT_UA = /bot|crawl|spider|slurp|curl|wget|python|httpclient|http-client|headless|phantom|selenium|puppeteer|playwright|facebookexternalhit|preview|monitor|uptime|scan|scrapy|go-http|java\/|okhttp|node-fetch|axios|undici|libwww|feed|rss|fetch|archive|lighthouse|pingdom|whatsapp|telegram|discord|slack/i;
 
 // Feste Pfad-Whitelist: verhindert, dass Scanner (/wp-login.php, /.env …) die Tabelle aufblähen.
-const COUNTED_PATHS = new Set(['/', '/index.html', '/nova', '/portfolio', '/strategie', '/weltlage', '/spiele', '/spiele/', '/spiele/millionenquiz/', '/impressum', '/datenschutz', '/feed.xml']);
+// /insta = Instagram-Bio-Link (seit 2026-11-20): zeigt die Startseite, zählt Besuche aus Instagram getrennt (Z2).
+const COUNTED_PATHS = new Set(['/', '/index.html', '/nova', '/portfolio', '/strategie', '/weltlage', '/umwelt', '/spiele', '/spiele/', '/spiele/millionenquiz/', '/impressum', '/datenschutz', '/feed.xml', '/insta']);
 
 const countStmt = db.prepare(`
   INSERT INTO page_views (day, path, kind, hits) VALUES (?, ?, ?, 1)
@@ -87,7 +88,10 @@ function countView(req, pathLabel, forcedKind) {
 // Seit 2026-11-08 getrennt: typische Scanner-Ziele max. 10/Tag, alle anderen max. 100/Tag mit
 // Präfix "unknown-path: ?" – nur die sind Kandidaten für echte Nutzerpfade (alte Links).
 // Grund: Am 07.11. füllte ein einziger .env-Sweep das 30er-Limit, 155 von 185 Pfaden blieben ungesehen.
-const SCANNER_PATH = /(^|\/)\.(env|git|svn|hg|aws|ssh|docker|vscode|idea|DS_Store)|wp-|wordpress|phpmyadmin|pma|admin|xmlrpc|cgi-bin|\.php|\.asp|actuator|vendor|config|backup|\.bak|\.sql|shell|boaform|HNAP|solr|druid|owa|autodiscover|telescope|debug|server-status|_profiler|eval|setup/i;
+// Seit 2026-11-22 erweitert nach Auswertung 15.–22.11. (119 Pfade, ideas/2026-10-31-geldwege.md):
+// jedes Segment mit führendem Punkt (auch %2e), %2f-Tricks, phpinfo, JS-Bundle-Fetzen (.replace%28),
+// Docker/cPanel/Vite-Sonden, und Kontaktseiten-Crawler (/about, /team, /contact … auch unter /nova/).
+const SCANNER_PATH = /(^|\/)(\.|%2e)[a-z_~]|%2f|wp-|wordpress|phpmyadmin|pma|admin|xmlrpc|cgi-bin|\.php|phpinfo|\.asp|actuator|vendor|config|backup|\.bak|\.sql|shell|boaform|HNAP|solr|druid|owa|autodiscover|telescope|debug|server-status|_profiler|eval|setup|\.replace%28|^\/,|_catalog|console|___proxy|WebInterface|@vite|aspera|login|^\/nova\/.|(^|\/)(about|about-us|team|our-team|staff|people|leadership|company|contact|contact-us|contactus|kontakt|imprint|legal|legal-notice|privacy|privacy-policy|terms|pricing|help|support|pages|identity|server|sse)(\/|$)/i;
 // Seit 2026-11-15 zusätzlich in der DB (Tabelle unknown_paths, gleiche Limits), weil
 // `docker compose up --build` den Container ersetzt und damit die docker logs löscht –
 // am 15.11. gingen so alle Pfade seit 08.11. verloren (668 Scan-Treffer, Pfade unbekannt).
@@ -119,6 +123,22 @@ function logUnknownPath(p) {
   console.log('unknown-path: ' + cls, shown);
   try { unknownStmt.run(day, shown, cls); } catch (err) { console.error('unknown_paths:', err.message); }
 }
+
+// Seit 2026-11-22: kaputte Links reparieren statt verlieren. In 15.–22.11. kamen /nova%60 und
+// /insta%60 an (Backtick aus einem Markdown-Text mitkopiert) sowie /rss und /feed (Feedreader raten).
+// Satzzeichen am Ende eines gezählten Pfads → 301 auf den sauberen Pfad; /rss, /feed → /feed.xml.
+const TRAILING_JUNK = /(%60|%22|%27|%29|%3E|[`'").,;:!?>])+$/i;
+const FEED_ALIASES = new Set(['/rss', '/rss/', '/feed', '/feed/', '/rss.xml', '/atom.xml']);
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const q = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  if (FEED_ALIASES.has(req.path.toLowerCase())) return res.redirect(301, '/feed.xml' + q);
+  if (TRAILING_JUNK.test(req.path)) {
+    const clean = req.path.replace(TRAILING_JUNK, '') || '/';
+    if (COUNTED_PATHS.has(clean)) return res.redirect(301, clean + q);
+  }
+  next();
+});
 
 // Seitenaufrufe = HTML-Dokument-Ladevorgänge (nicht JS/CSS/API)
 app.use((req, res, next) => {
@@ -160,6 +180,10 @@ app.get(['/spiele', '/spiele/'], (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+// Instagram-Kacheln (instagram_post.py): Graph API holt das Bild per öffentlicher URL.
+// Nur .jpg, kein Verzeichnis-Listing; Volume ../personality/memory/instagram/public (ro).
+app.use('/ig', (req, res, next) => (/^\/[\w.-]+\.jpg$/.test(req.path) ? next() : res.status(404).end()),
+  express.static(process.env.IG_PATH || '/ig-data', { index: false, fallthrough: false, maxAge: '7d' }));
 
 // ---------------------------------------------------------------------------
 // Dedizierte Routen für rechtliche Seiten (für Crawler und direkten Aufruf)
@@ -181,6 +205,10 @@ app.get('/strategie', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/umwelt', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.get('/weltlage', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -197,7 +225,7 @@ app.post('/api/posts', (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: category, title, content, date' });
   }
 
-  const validCategories = ['ki-news', 'ki-weekly', 'market', 'midday', 'head-follies', 'erklaer-mir-kurz', 'portfolio', 'strategy', 'nova', 'weltlage', 'weltlage-lagebild'];
+  const validCategories = ['ki-news', 'ki-weekly', 'market', 'midday', 'head-follies', 'erklaer-mir-kurz', 'portfolio', 'strategy', 'nova', 'weltlage', 'weltlage-lagebild', 'umwelt'];
   if (!validCategories.includes(category)) {
     return res.status(400).json({ error: `Invalid category. Use one of: ${validCategories.join(', ')}` });
   }
@@ -216,7 +244,7 @@ app.post('/api/posts', (req, res) => {
 
     // Keep only the N most recent entries per category.
     // Weltlage ist ein Archiv (2×/Woche) – dort 2 Jahre statt 20 Einträge.
-    const keep = category === 'weltlage' ? 210 : 20;
+    const keep = category === 'weltlage' ? 210 : category === 'umwelt' ? 400 : 20;  // Umwelt-Tipps: zeitloses Archiv
     db.prepare(`
       DELETE FROM posts
       WHERE category = ?
@@ -255,6 +283,8 @@ app.get('/api/posts', (req, res) => {
     query += " WHERE category = 'nova'";
   } else if (section === 'weltlage') {
     query += " WHERE category = 'weltlage'";
+  } else if (section === 'umwelt') {
+    query += " WHERE category = 'umwelt'";
   } else if (section === 'weltlage-lagebild') {
     query += " WHERE category = 'weltlage-lagebild'";
   }

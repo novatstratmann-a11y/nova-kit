@@ -63,6 +63,10 @@ def setup_logging():
     fh = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(asctime)s  %(name)-16s  %(levelname)-8s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     logger.addHandler(fh)
+    # telegram_utils-Warnungen (HTTP-Status, Fehlertext) ebenfalls nach scripts.log
+    # (Lücke ki_news 14.11.; vorher nur stdout, das Cron verwirft).
+    logging.getLogger("telegram").setLevel(logging.INFO)
+    logging.getLogger("telegram").addHandler(fh)
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +103,10 @@ Promi-News, Sport, Einzelverbrechen ohne Systemwirkung: nein.
    (z. B. Al Jazeera, The Hindu, SCMP) neben Reuters/AP/BBC/tagesschau/DW. Prüfe JEDE Zahl (Tote, Magnitude,
    Wahlergebnis, Zinssatz) an einer Quelle. Was du nicht verifizieren kannst, lässt du weg oder markierst es als unbestätigt.
    Geltungsbereich exakt wiedergeben (lokal vs. landesweit, vorläufig vs. amtlich). Link-Beschriftung = tatsächliche Quelle der URL.
-3. Prüfe die offenen Prognosen im Lagebild, deren Prüfdatum erreicht ist: eingetreten / nicht eingetreten / offen. Ehrlich.
+3. Prüfe die offenen Prognosen im Lagebild, deren Prüfdatum erreicht ist ODER deren Ereignis schon abgeschlossen ist:
+   eingetreten / nicht eingetreten / offen. Ehrlich. Jede Auflösung (✅/❌) braucht eine Quelle mit URL, die das Ergebnis belegt.
+   Aufgelöste Prognosen verschwinden aus „Offene Prognosen“ und stehen in „Bilanz meiner Prognosen“. Bestehende Bilanz-Zeilen
+   übernimmst du unverändert (inkl. Quelle).
 4. Schreibe zwei Dateien (siehe unten). Standard-Markdown (## Überschriften, **fett**, [Text](URL), Tabellen erlaubt).
    KEIN Telegram-Escaping (keine Backslashes vor Punkten o. ä.).
 
@@ -130,7 +137,7 @@ Die wichtigsten Termine und Entwicklungen der nächsten 4–8 Wochen (Tabelle: D
 ## Meine Prognosen
 1–3 neue, überprüfbare Prognosen: Aussage, Wahrscheinlichkeit in %, Prüfdatum. Keine Gemeinplätze –
 so konkret, dass man später eindeutig sagen kann, ob sie stimmte.
-Plus: Auflösung fälliger alter Prognosen (✅/❌/⏳) mit einem Satz, was ich daraus lerne.
+Plus: Auflösung fälliger alter Prognosen (✅/❌/⏳) mit einem Satz, was ich daraus lerne, und der Quelle als [Name](URL).
 
 ## Was ich nicht weiß
 Ein kurzer, ehrlicher Absatz: Wo ist die Lage unklar, wo widersprechen sich Quellen, wo könnte ich falsch liegen.
@@ -154,7 +161,7 @@ Tabelle: abgegeben am | Prognose | Wahrscheinlichkeit | Prüfdatum.
 
 ## Bilanz meiner Prognosen
 Eine Zeile: X von Y aufgelösten Prognosen eingetreten. Darunter Tabelle der aufgelösten Prognosen
-(abgegeben | Prognose | Wahrsch. | Ergebnis ✅/❌). Älteste zuerst streichen, wenn es mehr als 20 werden – die Zählung bleibt.
+(abgegeben | Prognose | Wahrsch. | Ergebnis ✅/❌ mit Halbsatz | Quelle als [Name](URL)). Keine Zeile ohne Quelle. Älteste zuerst streichen, wenn es mehr als 20 werden – die Zählung bleibt.
 
 Schreibe ausschließlich die beiden Dateien. Antworte danach nur mit "FERTIG".
 """

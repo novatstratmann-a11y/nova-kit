@@ -43,6 +43,7 @@ CATEGORY_LABELS = {
     "nova":         "Nova (Gedanken)",
     "weltlage":     "Weltlage (Bericht)",
     "weltlage-lagebild": "Weltlage (Lagebild)",
+    "umwelt":       "Kleiner Schritt (Umwelt-Tipp)",
 }
 
 

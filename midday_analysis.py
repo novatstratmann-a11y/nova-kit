@@ -46,6 +46,14 @@ def setup_logging():
     fh.setLevel(logging.INFO)
     fh.setFormatter(logging.Formatter("%(asctime)s  %(name)-16s  %(levelname)-8s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     logger.addHandler(fh)
+    # telegram_utils-Warnungen (HTTP-Status, Fehlertext) ebenfalls nach scripts.log
+    # (Lücke ki_news 14.11.; vorher nur stdout, das Cron verwirft).
+    logging.getLogger("telegram").setLevel(logging.INFO)
+    logging.getLogger("telegram").addHandler(fh)
+    # portfolio-Warnungen (Symbol fehlgeschlagen, Kursabfrage-Fehler) nach scripts.log
+    # (2026-11-23; INFO bleibt draußen, performance_context fragt ~25 Kurse je Lauf ab).
+    logging.getLogger("portfolio").setLevel(logging.WARNING)
+    logging.getLogger("portfolio").addHandler(fh)
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +272,7 @@ def _execute_portfolio_actions(content: str, today: str, dry_run: bool = False):
 
     sys.path.insert(0, str(SCRIPT_DIR))
     try:
-        from portfolio import parse_portfolio_actions, Portfolio, get_current_price, find_trade_intents
+        from portfolio import parse_portfolio_actions, Portfolio, get_current_price, find_trade_intents, known_price_symbol
         from telegram_utils import send_message, send_to_admin
         from blog_client import post_to_blog
     except ImportError as exc:
@@ -293,7 +301,8 @@ def _execute_portfolio_actions(content: str, today: str, dry_run: bool = False):
     for action in actions:
         if action['action'] not in ('BUY', 'SELL'):
             continue
-        result = get_current_price(action['identifier'], action['name'])
+        result = get_current_price(action['identifier'], action['name'],
+                                   known_price_symbol(action['identifier']))
         # Plausibilität (2026-11-14): Die Yahoo-Namenssuche kann ein falsches Symbol
         # treffen (TSMC → 0,96 € statt ~400 €). Weicht der Live-Kurs um mehr als 50 %
         # von Novas Zahl ab, gilt er als Fehltreffer und Novas Zahl bleibt stehen.
@@ -305,6 +314,10 @@ def _execute_portfolio_actions(content: str, today: str, dry_run: bool = False):
             result = None
         if result is not None:
             live_price = result['price']
+            # Beleg in scripts.log (2026-11-23): Der portfolio-Logger schreibt
+            # „Aktueller Kurs … (Symbol: …)“ nur nach stdout, Cron verwirft das.
+            logger.info("Live-Kurs %s: %.2f € (Symbol: %s)",
+                        action['identifier'], live_price, result['symbol'])
             if abs(live_price - action['price_per_unit']) > 0.01:
                 logger.info(
                     "Kurskorrektur %s: Nova %.2f € → Live %.2f €",

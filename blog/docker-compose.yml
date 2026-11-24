@@ -7,8 +7,10 @@ services:
       - ./blog_data:/data
       - ../personality/memory/portfolio:/portfolio-data:ro
       - ../personality/memory/portfolio_b:/portfolio-b-data:ro
+      - ../personality/memory/instagram/public:/ig-data:ro
     environment:
       - DB_PATH=/data/blog.db
       - PORTFOLIO_PATH=/portfolio-data/portfolio.json
       - TRADES_PATH=/portfolio-data/trades.json
+      - IG_PATH=/ig-data
     restart: unless-stopped

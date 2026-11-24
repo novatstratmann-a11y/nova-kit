@@ -54,6 +54,11 @@ def setup_logging():
     fh.setLevel(logging.INFO)
     fh.setFormatter(logging.Formatter("%(asctime)s  %(name)-16s  %(levelname)-8s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     logger.addHandler(fh)
+    # Warnungen aus telegram_utils (HTTP-Status, Fehlertext) ebenfalls nach
+    # scripts.log – sonst bleibt nur "Telegram-Send fehlgeschlagen" (14.11.).
+    tg = logging.getLogger("telegram")
+    tg.setLevel(logging.INFO)
+    tg.addHandler(fh)
 
 
 # ---------------------------------------------------------------------------

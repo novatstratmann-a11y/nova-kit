@@ -98,9 +98,28 @@ def get_current_price(identifier: str, name: str = '',
         )
         data = _fetch_json(url)
         meta = (data.get('chart', {}).get('result') or [{}])[0].get('meta', {})
-        if meta.get('regularMarketPrice') is not None and meta.get('currency') == 'EUR':
-            return float(meta['regularMarketPrice'])
-        return None
+        px, cur = meta.get('regularMarketPrice'), meta.get('currency')
+        if px is None:
+            return None
+        if cur == 'EUR':
+            return float(px)
+        # 2026-11-21: Nicht-EUR-Kurs (Glencore → GLEN.L in GBp) in EUR umrechnen,
+        # statt auf Novas Schätzung zurückzufallen (19.11.: 5,64 € gebucht, Live ≈ 5,53 €).
+        factor = 1.0
+        if cur in ('GBp', 'GBX'):
+            cur, factor = 'GBP', 0.01
+        if not cur or not re.fullmatch(r'[A-Z]{3}', cur):
+            return None
+        fx_meta = (_fetch_json(
+            'https://query1.finance.yahoo.com/v8/finance/chart/'
+            f'{cur}EUR=X?interval=1d&range=1d'
+        ).get('chart', {}).get('result') or [{}])[0].get('meta', {})
+        fx = fx_meta.get('regularMarketPrice')
+        if not fx:
+            return None
+        eur = float(px) * factor * float(fx)
+        logger.info("Umrechnung %s: %.4f %s × %.5f = %.4f €", symbol, float(px) * factor, cur, fx, eur)
+        return eur
 
     try:
         # price_symbol hat Vorrang – auch vor Krypto-Pattern
@@ -122,7 +141,18 @@ def get_current_price(identifier: str, name: str = '',
             logger.warning("Kein Yahoo-Symbol für %s (%s) gefunden.", identifier, name)
             return None
 
-        price = _fetch_price(symbol)
+        try:
+            price = _fetch_price(symbol)
+        except Exception as exc:
+            if not price_symbol:
+                raise
+            logger.warning("Gespeichertes Symbol %s für %s fehlgeschlagen: %s", symbol, identifier, exc)
+            price = None
+        if price is None and price_symbol:
+            # Gespeichertes Symbol liefert nichts → normale Suche als Rückfall
+            alt = (_search_symbol(name) if name else None) or _search_symbol(identifier)
+            if alt and alt != symbol:
+                symbol, price = alt, _fetch_price(alt)
         if price is not None:
             logger.info("Aktueller Kurs %s: %.4f € (Symbol: %s)", identifier, price, symbol)
             return {'price': price, 'symbol': symbol}
@@ -131,6 +161,23 @@ def get_current_price(identifier: str, name: str = '',
     except Exception as exc:
         logger.warning("Kursabfrage %s (%s) fehlgeschlagen: %s", identifier, name, exc)
         return None
+
+
+def known_price_symbol(identifier: str) -> str:
+    """Gespeichertes Yahoo-Symbol einer Depot-Position (leer, wenn unbekannt).
+
+    2026-11-21: Die Analyse-Skripte suchten bei SELL neu per Name und fanden für
+    Glencore nur GLEN.L, obwohl portfolio.json 8GC.MU kannte.
+    """
+    try:
+        data = json.loads(PORTFOLIO_FILE.read_text(encoding='utf-8'))
+        ident = (identifier or '').lower()
+        for h in data.get('holdings', []):
+            if h.get('identifier', '').lower() == ident:
+                return h.get('price_symbol') or ''
+    except Exception as exc:
+        logger.warning("known_price_symbol(%s): %s", identifier, exc)
+    return ''
 
 
 # ---------------------------------------------------------------------------
@@ -363,7 +410,10 @@ _TRADE_INTENT_PATTERNS = [
     re.compile(r'\b(?:Kauf|Verkauf|Teilverkauf|Trades? heute)\s*:', re.IGNORECASE),
     re.compile(r'\bsteige\b[^.\n]{0,80}\bein\b', re.IGNORECASE),
     # "Ich kaufe erst, wenn …" ist eine Bedingung, kein Trade (Fehlalarm Mittagsanalyse 13.11.).
-    re.compile(r'\b(?:kaufe|verkaufe)\b(?!\s+(?:trotzdem\s+)?nicht)(?!\s+erst\b)(?![^.\n]{0,40}\bnicht\b)', re.IGNORECASE),
+    # Seit 20.11. außerdem: "nicht kaufe" (Verneinung davor), "kaufe ich nichts/keinen/weder"
+    # und "Fällt er, verkaufe ich" (Verb direkt nach Komma = Bedingungssatz, Stop-Ankündigung).
+    re.compile(r'(?<!nicht )(?<!, )\b(?:kaufe|verkaufe)\b(?!\s+erst\b)'
+               r'(?![^.\n]{0,40}\b(?:nicht|nichts|kein\w*|weder)\b)', re.IGNORECASE),
     re.compile(r'\b(?:vollständig|komplett)\s+verkauft\b', re.IGNORECASE),
     re.compile(r'\bNeu kommt\b[^.\n]{0,80}\bPosition\b', re.IGNORECASE),
 ]
