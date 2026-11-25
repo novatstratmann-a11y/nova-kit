@@ -32,9 +32,11 @@ SCRIPTS_LOG = PERS / "logs" / "scripts.log"
 STATE_FILE = PERS / ".cron_watch_state.json"
 
 # Termine vor diesem Datum werden nie gemeldet (Start der Überwachung).
-# Steht in personality/.watch_since (ISO-Datum). Fehlt die Datei (Neuinstallation),
-# wird sie beim ersten Lauf mit dem heutigen Datum angelegt – sonst meldet eine
-# frische Installation alle Termine vor ihrer Existenz als verpasst.
+# Steht in personality/.watch_since (ISO-Zeitpunkt, z. B. 2026-11-25T15:03;
+# das alte reine Datum 2026-11-04 = Mitternacht wird weiter gelesen). Fehlt die
+# Datei (Neuinstallation), legt der erste Lauf sie mit dem JETZIGEN Zeitpunkt an –
+# sonst meldet eine frische Installation alle Termine vor ihrer Existenz als
+# verpasst (mit nur dem Datum: die Termine des Installationstags, z. B. 08:00).
 WATCH_SINCE_FILE = PERS / ".watch_since"
 
 
@@ -42,12 +44,12 @@ def _load_watch_since() -> datetime:
     try:
         return datetime.fromisoformat(WATCH_SINCE_FILE.read_text(encoding="utf-8").strip())
     except (OSError, ValueError):
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        now = datetime.now().replace(second=0, microsecond=0)
         try:
-            WATCH_SINCE_FILE.write_text(today.date().isoformat() + "\n", encoding="utf-8")
+            WATCH_SINCE_FILE.write_text(now.isoformat(timespec="minutes") + "\n", encoding="utf-8")
         except OSError:
             pass
-        return today
+        return now
 
 
 WATCH_SINCE = _load_watch_since()
